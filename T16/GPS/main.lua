@@ -28,6 +28,7 @@ Install:
 
 
 log_filename = "/LOGS/GPSpositions.txt"
+full_log_filename = "/LOGS/GPSpositions_full.txt"
 local background_img
 local sat_img 
 local dis_img 
@@ -70,33 +71,75 @@ local newline_color = WHITE
 		return hours..":"..mins..":"..secs
 	  end
 	end
+
+	local function file_exists(name)
+		local f = io.open(name, "r")
+		if f then
+			 f:close()
+			 return true
+		else
+			 return false
+		end
+ 	end
+
+	local function writeLogHeader(file)
+		io.write(file, "Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")		
+	end
 	
 	--[	####################################################################
 	--[	write logfile
 	--[	####################################################################
 	local function write_log(wgt)
 
-		now = getTime()    
+		now = getTime()
 		if wgt.old_time_write + wgt.log_write_wait_time < now then
-		
-			wgt.ctr = wgt.ctr + 1		
+			
+			wgt.ctr = wgt.ctr + 1
 			time_power_on = SecondsToClock(getGlobalTimer()["session"])
-							
+			
+			-- Check if the file exists, if not create it
+			if not file_exists(log_filename) then
+				file = io.open(log_filename, "w")
+				-- Header line for the full log file
+				writeLogHeader(file)
+				io.close(file)
+			end
+
 			--write logfile		
 			file = io.open(log_filename, "a")    									
-
 			io.write(file, wgt.coordinates_current ..",".. time_power_on ..", "..  wgt.gpsSATS..", ".. wgt.gpsALT ..", ".. wgt.gpsSpeed, "\r\n")					
-			io.close(file)			
+			io.close(file)
+
+			-- Check if the file exists, if not create it
+			if not file_exists(full_log_filename) then
+				file = io.open(full_log_filename, "w")
+				-- Header line for the full log file
+				io.write(file, "Date,Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")
+				io.close(file)
+			end
+
+			-- Write full log entry
+			local full_log_entry = string.format(
+				"%s, %s, %s, %s, %s, %s\r\n",
+				os.date("%Y-%m-%d %H:%M:%S"),  -- Format: 2025-04-16 14:35:22
+				wgt.coordinates_current,
+				time_power_on,
+				wgt.gpsSATS,
+				wgt.gpsALT,
+				wgt.gpsSpeed
+			)
+		
+			-- Append to the full log file
+			file = io.open(full_log_filename, "a")
+			io.write(file, full_log_entry)
+			io.close(file)
 
 			if wgt.ctr >= 99 then
-				wgt.ctr = 0				
+				wgt.ctr = 0
 				--clear log and add headline
 				file = io.open(log_filename, "w") 
-					io.write(file, "Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")		
-				io.close(file)	
-				
-				--reopen log for appending data
-				file = io.open(log_filename, "a")    			
+				writeLogHeader(file)
+				io.close(file)
 			end	
 			wgt.old_time_write = now
 		end	
