@@ -69,17 +69,19 @@ local newline_color = WHITE
 		mins = string.format("%02.f", math.floor(seconds/60 - (hours*60)));
 		secs = string.format("%02.f", math.floor(seconds - hours*3600 - mins *60));    
 		return hours..":"..mins..":"..secs
-	  end
 	end
+end
 
-	local function file_exists(name)
-		if type(name)~="string" then return false end
-		return os.rename(name,name) and true or false
- 	end
+local function file_exists(name)
+	if type(name)~="string" then return false end
+	return os.rename(name,name) and true or false
+end
 
-	local function writeLogHeader(file)
-		io.write(file, "Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")		
-	end
+local function writeLogHeader(log_filename)
+	local file = io.open(log_filename, "w") 
+	file:write("Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")		
+	file:close()
+end
 
 	local function getFullLogPath()
 		local date = os.date("%Y-%m-%d")
@@ -99,15 +101,13 @@ local newline_color = WHITE
 			
 			-- Check if the file exists, if not create it
 			if not file_exists(log_filename) then
-				file = io.open(log_filename, "w")
 				-- Header line for the full log file
-				writeLogHeader(file)
-				io.close(file)
+				writeLogHeader(log_filename)
 			end
 
 			--write logfile		
 			file = io.open(log_filename, "a")    									
-			io.write(file, wgt.coordinates_current ..",".. time_power_on ..", "..  wgt.gpsSATS..", ".. wgt.gpsALT ..", ".. wgt.gpsSpeed, "\r\n")					
+			file:write(wgt.coordinates_current ..",".. time_power_on ..", "..  wgt.gpsSATS..", ".. wgt.gpsALT ..", ".. wgt.gpsSpeed, "\r\n")					
 			io.close(file)
 
 			-- Check if the file exists, if not create it
@@ -115,7 +115,7 @@ local newline_color = WHITE
 			if not file_exists(full_log_filename) then
 				file = io.open(full_log_filename, "w")
 				-- Header line for the full log file
-				io.write(file, "Date,Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")
+				file:write("Date,Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")
 				io.close(file)
 			end
 
@@ -132,15 +132,13 @@ local newline_color = WHITE
 		
 			-- Append to the full log file
 			file = io.open(full_log_filename, "a")
-			io.write(file, full_log_entry)
+			file:write(full_log_entry)
 			io.close(file)
 
 			if wgt.ctr >= 99 then
 				wgt.ctr = 0
 				--clear log and add headline
-				file = io.open(log_filename, "w") 
-				writeLogHeader(file)
-				io.close(file)
+				writeLogHeader(log_filename)
 			end	
 			wgt.old_time_write = now
 		end	
