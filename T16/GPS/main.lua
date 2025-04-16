@@ -73,13 +73,8 @@ local newline_color = WHITE
 	end
 
 	local function file_exists(name)
-		local f = io.open(name, "r")
-		if f then
-			 f:close()
-			 return true
-		else
-			 return false
-		end
+		if type(name)~="string" then return false end
+		return os.rename(name,name) and true or false
  	end
 
 	local function writeLogHeader(file)
