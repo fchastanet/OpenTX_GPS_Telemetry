@@ -28,7 +28,7 @@ Install:
 
 
 log_filename = "/LOGS/GPSpositions.txt"
-full_log_filename = "/LOGS/GPSpositions_full.txt"
+full_log_filename_prefix = "/LOGS/GPSpositions_full_"
 local background_img
 local sat_img 
 local dis_img 
@@ -85,6 +85,11 @@ local newline_color = WHITE
 	local function writeLogHeader(file)
 		io.write(file, "Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")		
 	end
+
+	local function getFullLogPath()
+		local date = os.date("%Y-%m-%d")
+		return full_log_filename_prefix .. date .. ".txt"
+	end
 	
 	--[	####################################################################
 	--[	write logfile
@@ -111,6 +116,7 @@ local newline_color = WHITE
 			io.close(file)
 
 			-- Check if the file exists, if not create it
+			local full_log_filename = getFullLogPath()
 			if not file_exists(full_log_filename) then
 				file = io.open(full_log_filename, "w")
 				-- Header line for the full log file
