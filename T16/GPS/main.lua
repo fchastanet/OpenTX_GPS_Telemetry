@@ -26,7 +26,6 @@ Install:
 
 ################################################################################]]
 
-
 log_filename = "/LOGS/GPSpositions.txt"
 full_log_filename_prefix = "/LOGS/GPSpositions_full_"
 local background_img
@@ -43,28 +42,28 @@ local newline_color = WHITE
 --[	functions
 --[	####################################################################
 
-	--[	####################################################################
-	--[	rounding function
-	--[	####################################################################
+--[	####################################################################
+--[	rounding function
+--[	####################################################################
 
-	local function rnd(v,d)
-		if d then
-			return math.floor((v*10^d)+0.5)/(10^d)
-		else
-			return math.floor(v+0.5)
-		end
+local function rnd(v,d)
+	if d then
+		return math.floor((v*10^d)+0.5)/(10^d)
+	else
+		return math.floor(v+0.5)
 	end
+end
 
-	--[	####################################################################
-	--[	seconds format
-	--[	####################################################################
+--[	####################################################################
+--[	seconds format
+--[	####################################################################
 
-	local function SecondsToClock(seconds)
-	  local seconds = tonumber(seconds)
+local function SecondsToClock(seconds)
+	local seconds = tonumber(seconds)
 
-	  if seconds <= 0 then
+	if seconds <= 0 then
 		return "00:00:00";
-	  else
+	else
 		hours = string.format("%02.f", math.floor(seconds/3600));
 		mins = string.format("%02.f", math.floor(seconds/60 - (hours*60)));
 		secs = string.format("%02.f", math.floor(seconds - hours*3600 - mins *60));    
@@ -73,128 +72,139 @@ local newline_color = WHITE
 end
 
 local function file_exists(name)
-	if type(name)~="string" then return false end
-	return os.rename(name,name) and true or false
+  if type(name) ~= "string" then return false end
+  local f = io.open(name, "r") -- Try to open for reading
+  if f then
+    -- If open succeeded, the file exists. Close it immediately.
+    io.close(f)
+    return true
+  else
+    -- If open failed, the file likely doesn't exist (or permissions issue)
+    return false
+  end
 end
 
 local function writeLogHeader(log_filename)
 	local file = io.open(log_filename, "w") 
-	file:write("Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")		
-	file:close()
+	io.write(file, "Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")		
+	io.close(file)
 end
 
-	local function getFullLogPath()
-		local date = os.date("%Y-%m-%d")
-		return full_log_filename_prefix .. date .. ".txt"
-	end
-	
-	--[	####################################################################
-	--[	write logfile
-	--[	####################################################################
-	local function write_log(wgt)
+local function getFullLogPath()
+	 -- Get the date/time table from the system
+	 local dt = getDateTime()
+	-- Format the date components into the desired string
+	local date = string.format("%d-%02d-%02d", dt.year, dt.mon, dt.day)
+	return full_log_filename_prefix .. date .. ".txt"
+end
 
-		now = getTime()
-		if wgt.old_time_write + wgt.log_write_wait_time < now then
-			
-			wgt.ctr = wgt.ctr + 1
-			time_power_on = SecondsToClock(getGlobalTimer()["session"])
-			
-			-- Check if the file exists, if not create it
-			if not file_exists(log_filename) then
-				-- Header line for the full log file
-				writeLogHeader(log_filename)
-			end
+--[	####################################################################
+--[	write logfile
+--[	####################################################################
+local function write_log(wgt)
 
-			--write logfile		
-			file = io.open(log_filename, "a")    									
-			file:write(wgt.coordinates_current ..",".. time_power_on ..", "..  wgt.gpsSATS..", ".. wgt.gpsALT ..", ".. wgt.gpsSpeed, "\r\n")					
-			io.close(file)
-
-			-- Check if the file exists, if not create it
-			local full_log_filename = getFullLogPath()
-			if not file_exists(full_log_filename) then
-				file = io.open(full_log_filename, "w")
-				-- Header line for the full log file
-				file:write("Date,Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")
-				io.close(file)
-			end
-
-			-- Write full log entry
-			local full_log_entry = string.format(
-				"%s, %s, %s, %s, %s, %s\r\n",
-				os.date("%Y-%m-%d %H:%M:%S"),  -- Format: 2025-04-16 14:35:22
-				wgt.coordinates_current,
-				time_power_on,
-				wgt.gpsSATS,
-				wgt.gpsALT,
-				wgt.gpsSpeed
-			)
+	now = getTime()
+	if wgt.old_time_write + wgt.log_write_wait_time < now then
 		
-			-- Append to the full log file
-			file = io.open(full_log_filename, "a")
-			file:write(full_log_entry)
-			io.close(file)
-
-			if wgt.ctr >= 99 then
-				wgt.ctr = 0
-				--clear log and add headline
-				writeLogHeader(log_filename)
-			end	
-			wgt.old_time_write = now
-		end	
-	end
-
-	--[	####################################################################
-	--[	get telemetry IDs
-	--[	####################################################################
-
-	local function getTelemetryId(name)    
-		field = getFieldInfo(name)
-		if field then
-			return field.id
-		else
-			return-1
+		wgt.ctr = wgt.ctr + 1
+		time_power_on = SecondsToClock(getGlobalTimer()["session"])
+		
+		-- Check if the file exists, if not create it
+		if not file_exists(log_filename) then
+			-- Header line for the full log file
+			writeLogHeader(log_filename)
 		end
-	end
 
-	--[	####################################################################
-	--[	calculate distance
-	--[	####################################################################
-	local function calc_Distance(LatPos, LonPos, LatHome, LonHome)
-		local d2r = math.pi/180
-		local d_lon = (LonPos - LonHome) * d2r 
-		local d_lat = (LatPos - LatHome) * d2r 
-		local a = math.pow(math.sin(d_lat/2.0), 2) + math.cos(LatHome*d2r) * math.cos(LatPos*d2r) * math.pow(math.sin(d_lon/2.0), 2)
-		local c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-		local dist = (6371000 * c) / 1000	
-		return rnd(dist,2)
-	end
+		--write logfile		
+		file = io.open(log_filename, "a")    									
+		io.write(file, wgt.coordinates_current ..",".. time_power_on ..", "..  wgt.gpsSATS..", ".. wgt.gpsALT ..", ".. wgt.gpsSpeed, "\r\n")					
+		io.close(file)
+
+		-- Check if the file exists, if not create it
+		local full_log_filename = getFullLogPath()
+		if not file_exists(full_log_filename) then
+			file = io.open(full_log_filename, "w")
+			-- Header line for the full log file
+			io.write(file, "Date,Number,LAT,LON,radio_time,satellites,GPSalt,GPSspeed", "\r\n")
+			io.close(file)
+		end
+
+		-- Get the date/time table from the system
+    local dt = getDateTime()
+		-- Write full log entry
+		local full_log_entry = string.format(
+			"%d-%02d-%02d %02d:%02d:%02d, %s, %s, %s, %s, %s\r\n",
+			dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec,
+			wgt.coordinates_current,
+			time_power_on,
+			wgt.gpsSATS,
+			wgt.gpsALT,
+			wgt.gpsSpeed
+		)
 	
-	--[	####################################################################
-	--[	ETX and OTX compatible draw text with color
-	--[	####################################################################
-	local function lcl_drawText(x, y, txt, flags, color)
-		lcd.setColor(CUSTOM_COLOR, color)
-		lcd.drawText(x, y, txt, flags + CUSTOM_COLOR)
-	end
-	
-	--[	####################################################################
-	--[	ETX and OTX compatible draw filled rect with color
-	--[	####################################################################
-	local function lcl_drawFilledRectangle(x1, y1, x2, y2, color)
-		lcd.setColor(CUSTOM_COLOR, color)
-		lcd.drawFilledRectangle(x1, y1, x2, y2, CUSTOM_COLOR)			
+		-- Append to the full log file
+		file = io.open(full_log_filename, "a")
+		io.write(file, full_log_entry)
+		io.close(file)
+
+		if wgt.ctr >= 99 then
+			wgt.ctr = 0
+			--clear log and add headline
+			writeLogHeader(log_filename)
+		end	
+		wgt.old_time_write = now
 	end	
+end
 
-	--[	####################################################################
-	--[	ETX and OTX compatible draw line with color
-	--[	####################################################################
-	local function lcl_drawLine(x1, y1, x2, y2, pattern, flags, color)
-		lcd.setColor(CUSTOM_COLOR, color)
-		lcd.drawLine(x1, y1, x2, y2, pattern, flags + CUSTOM_COLOR)
+--[	####################################################################
+--[	get telemetry IDs
+--[	####################################################################
+
+local function getTelemetryId(name)    
+	field = getFieldInfo(name)
+	if field then
+		return field.id
+	else
+		return-1
 	end
-	
+end
 
+--[	####################################################################
+--[	calculate distance
+--[	####################################################################
+local function calc_Distance(LatPos, LonPos, LatHome, LonHome)
+	local d2r = math.pi/180
+	local d_lon = (LonPos - LonHome) * d2r 
+	local d_lat = (LatPos - LatHome) * d2r 
+	local a = math.pow(math.sin(d_lat/2.0), 2) + math.cos(LatHome*d2r) * math.cos(LatPos*d2r) * math.pow(math.sin(d_lon/2.0), 2)
+	local c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+	local dist = (6371000 * c) / 1000	
+	return rnd(dist,2)
+end
+
+--[	####################################################################
+--[	ETX and OTX compatible draw text with color
+--[	####################################################################
+local function lcl_drawText(x, y, txt, flags, color)
+	lcd.setColor(CUSTOM_COLOR, color)
+	lcd.drawText(x, y, txt, flags + CUSTOM_COLOR)
+end
+
+--[	####################################################################
+--[	ETX and OTX compatible draw filled rect with color
+--[	####################################################################
+local function lcl_drawFilledRectangle(x1, y1, x2, y2, color)
+	lcd.setColor(CUSTOM_COLOR, color)
+	lcd.drawFilledRectangle(x1, y1, x2, y2, CUSTOM_COLOR)			
+end	
+
+--[	####################################################################
+--[	ETX and OTX compatible draw line with color
+--[	####################################################################
+local function lcl_drawLine(x1, y1, x2, y2, pattern, flags, color)
+	lcd.setColor(CUSTOM_COLOR, color)
+	lcd.drawLine(x1, y1, x2, y2, pattern, flags + CUSTOM_COLOR)
+end
 
 --############################################################################
 local options = {
